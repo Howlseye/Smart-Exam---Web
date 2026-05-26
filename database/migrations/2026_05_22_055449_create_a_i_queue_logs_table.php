@@ -13,6 +13,12 @@ return new class extends Migration
     {
         Schema::create('a_i_queue_logs', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('queue_id')->constrained('a_i_queues')->onDelete('cascade');
+            $table->integer('attempt')->default(1);
+            $table->string('confidence')->nullable();
+            $table->float('score')->nullable();
+            $table->text('ai_response')->nullable();
+            $table->string('status')->default('pending');
             $table->timestamps();
         });
     }

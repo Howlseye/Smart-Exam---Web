@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('a_i_queues', function (Blueprint $table) {
             $table->id();
+            $table->text('question');
+            $table->text('answer');
+            $table->string('status')->default('pending');
             $table->timestamps();
         });
     }

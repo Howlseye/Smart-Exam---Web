@@ -9,4 +9,6 @@ class AIQueue extends Model
 {
     /** @use HasFactory<\Database\Factories\AIQueueFactory> */
     use HasFactory;
+
+    protected $guarded = [];
 }
