@@ -8,7 +8,7 @@
                 @csrf
                 <button type="submit" class="btn btn-warning">Sinkronisasi Soal Terjawab</button>
             </form>
-            <button type="button" id="processAiBtn" class="btn btn-success">Mulai Proses AI</button>
+            <button type="button" id="processAiBtn" class="btn btn-success">Mulai Penilaian</button>
         </div>
     </div>
 
@@ -117,155 +117,88 @@
     document.addEventListener('DOMContentLoaded', function() {
         const processBtn = document.getElementById('processAiBtn');
         let isProcessing = false;
-        let isStopping = false;
-        let timeoutId = null;
+        let pollingInterval = null;
+
+        // Cek status saat pertama kali load
+        checkStatus();
 
         if (processBtn) {
             processBtn.addEventListener('click', function() {
-                // Jika sedang berjalan, maka klik ini berarti minta stop
                 if (isProcessing) {
-                    if (!isStopping) {
-                        isStopping = true;
-                        processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyelesaikan antrean saat ini...';
-                        processBtn.classList.replace('btn-danger', 'btn-secondary');
-                        
-                        // Jika saat ini sedang menunggu delay, langsung batalkan
-                        if (timeoutId) {
-                            clearTimeout(timeoutId);
-                            timeoutId = null;
-                            resetButton();
-                        }
-                    }
-                    return;
+                    stopProcess();
+                } else {
+                    startProcess();
                 }
-                
-                // Jika belum jalan, maka klik ini berarti Start
-                isProcessing = true;
-                isStopping = false;
-                processBtn.classList.remove('btn-success');
-                processBtn.classList.add('btn-danger');
-                processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Hentikan Proses AI';
-                
-                processNextQueue();
             });
         }
 
-        function resetButton() {
-            isProcessing = false;
-            isStopping = false;
-            timeoutId = null;
-            processBtn.innerHTML = 'Mulai Proses AI';
-            processBtn.className = 'btn btn-success';
+        function checkStatus() {
+            fetch('/queue/status')
+                .then(res => res.json())
+                .then(data => {
+                    isProcessing = data.is_active;
+                    
+                    if (isProcessing) {
+                        setButtonProcessing();
+                        if (!pollingInterval) {
+                            // Polling refresh page setiap 10 detik jika aktif
+                            pollingInterval = setInterval(() => {
+                                window.location.reload();
+                            }, 10000);
+                        }
+                    } else {
+                        setButtonIdle();
+                        if (pollingInterval) {
+                            clearInterval(pollingInterval);
+                            pollingInterval = null;
+                        }
+                        
+                        // Jika ada data progress, tp server stop, reload sekali
+                        if (data.has_processing && !data.is_active) {
+                            window.location.reload();
+                        }
+                    }
+                });
         }
 
-        function processNextQueue() {
-            if (isStopping) {
-                resetButton();
-                return;
-            }
-
-            // Step 1: Ambil antrean berikutnya dan ubah status jadi On Progress
-            fetch('/queue/take-next', {
+        function startProcess() {
+            setButtonProcessing();
+            fetch('/queue/start', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'done') {
-                    processBtn.innerHTML = 'Semua Selesai!';
-                    processBtn.className = 'btn btn-success';
-                    setTimeout(() => window.location.reload(), 1500);
-                } else if (data.status === 'success') {
-                    const rowId = data.data.id;
-                    const row = document.querySelector(`tr[data-queue-id="${rowId}"]`);
-                    
-                    // Tandai UI On Progress
-                    if (row) {
-                        const statusCol = row.querySelector('.col-status');
-                        if (statusCol) {
-                            statusCol.innerHTML = '<span class="badge bg-info">On Progress <i class="spinner-border spinner-border-sm" style="width: 10px; height: 10px;"></i></span>';
-                        }
-                    }
+            }).then(() => checkStatus());
+        }
 
-                    if (isStopping) {
-                        resetButton();
-                        return;
-                    }
-
-                    // Step 2: Proses AI ke Gemini (Tunggu sampai selesai)
-                    fetch(`/queue/process-id/${rowId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json'
-                        }
-                    })
-                    .then(res => res.json())
-                    .then(resData => {
-                        if (resData.status === 'success' || resData.status === 'failed') {
-                            if (row) {
-                                if (resData.data.score !== undefined) {
-                                    row.querySelector('.col-score').innerHTML = `<span class="badge bg-primary">${resData.data.score}</span>`;
-                                }
-                                if (resData.data.ai_response !== undefined) {
-                                    row.querySelector('.col-ai-response').innerText = resData.data.ai_response;
-                                }
-                                if (resData.data.processing_time !== undefined) {
-                                    row.querySelector('.col-processing-time').innerText = resData.data.processing_time + 's';
-                                }
-                                const sCol = row.querySelector('.col-status');
-                                if (resData.data.queue_status === 'completed') {
-                                    sCol.innerHTML = '<span class="badge bg-success">Completed</span>';
-                                } else if (resData.data.queue_status === 'failed') {
-                                    sCol.innerHTML = '<span class="badge bg-danger">Failed</span>';
-                                }
-                            }
-                            
-                            if (isStopping) {
-                                resetButton();
-                            } else {
-                                // Lanjut ke antrean berikutnya dengan delay
-                                timeoutId = setTimeout(processNextQueue, 12000);
-                            }
-                        } else if (resData.status === 'rate_limit') {
-                            console.warn(resData.message);
-                            if (isStopping) {
-                                resetButton();
-                                return;
-                            }
-                            processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Limit API! Menunggu 60d...';
-                            timeoutId = setTimeout(() => {
-                                processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Hentikan Proses AI';
-                                processNextQueue();
-                            }, 60000);
-                        } else {
-                            if (isStopping) {
-                                resetButton();
-                            } else {
-                                timeoutId = setTimeout(processNextQueue, 12000);
-                            }
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Proses Error:', err);
-                        if (isStopping) {
-                            resetButton();
-                        } else {
-                            timeoutId = setTimeout(processNextQueue, 12000);
-                        }
-                    });
+        function stopProcess() {
+            processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menghentikan...';
+            processBtn.classList.replace('btn-danger', 'btn-secondary');
+            
+            fetch('/queue/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 }
-            })
-            .catch(error => {
-                console.error('Ambil Antrean Error:', error);
-                alert('Terjadi kesalahan saat memuat antrean.');
-                window.location.reload();
+            }).then(() => {
+                isProcessing = false;
+                setButtonIdle();
+                if (pollingInterval) clearInterval(pollingInterval);
             });
+        }
+
+        function setButtonProcessing() {
+            processBtn.classList.remove('btn-success', 'btn-secondary');
+            processBtn.classList.add('btn-danger');
+            processBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Hentikan Penilaian';
+        }
+
+        function setButtonIdle() {
+            processBtn.classList.remove('btn-danger', 'btn-secondary');
+            processBtn.classList.add('btn-success');
+            processBtn.innerHTML = 'Mulai Penilaian';
         }
     });
 </script>

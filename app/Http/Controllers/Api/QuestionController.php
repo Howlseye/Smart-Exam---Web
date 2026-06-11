@@ -3,16 +3,23 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\QuestionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class QuestionController extends Controller
 {
+    protected QuestionService $questionService;
+
+    public function __construct(QuestionService $questionService)
+    {
+        $this->questionService = $questionService;
+    }
+
     public function index()
     {
-        // Mengambil seluruh data soal (id, tipe, pertanyaan, pilihan) yang belum dijawab
-        $questions = \App\Models\Question::select('id', 'type', 'question', 'options')
-            ->where('is_answered', false)
-            ->get();
+        // Ambil data melalui layanan.
+        $questions = $this->questionService->getUnansweredQuestions();
 
         return response()->json([
             'success' => true,
@@ -23,8 +30,8 @@ class QuestionController extends Controller
 
     public function submitAnswers(Request $request)
     {
-        // Validasi input: berupa array 'answers' maksimal 50 item
-        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+        // Validasi input jawaban.
+        $validator = Validator::make($request->all(), [
             'answers' => 'required|array|max:50',
             'answers.*.id' => 'required|exists:questions,id',
             'answers.*.answer' => 'nullable|string',
@@ -38,21 +45,9 @@ class QuestionController extends Controller
         }
 
         $answers = $validator->validated()['answers'];
-        $updatedCount = 0;
-
-        foreach ($answers as $answerData) {
-            $question = \App\Models\Question::find($answerData['id']);
-            
-            if ($question && !$question->is_answered) {
-                $question->update([
-                    'student_answer' => $answerData['answer'],
-                    'is_answered' => true
-                ]);
-                
-
-                $updatedCount++;
-            }
-        }
+        
+        // Simpan jawaban melalui layanan.
+        $updatedCount = $this->questionService->submitStudentAnswers($answers);
 
         return response()->json([
             'success' => true,
