@@ -59,14 +59,14 @@ class QuestionSeeder extends Seeder
 
         // 1. UNANSWERED (10 MCQ, 10 Essay)
         for ($i = 0; $i < 10; $i++) {
-            $this->createQuestion($mcqs[$i], 'multiple_choice', false);
-            $this->createQuestion($essays[$i], 'essay', false);
+            $this->createQuestion($mcqs[$i], 1, false); // 1 = multiple_choice
+            $this->createQuestion($essays[$i], 2, false); // 2 = essay
         }
 
         // 2. ANSWERED (10 MCQ, 10 Essay)
         for ($i = 10; $i < 20; $i++) {
-            $this->createQuestion($mcqs[$i], 'multiple_choice', true);
-            $this->createQuestion($essays[$i], 'essay', true);
+            $this->createQuestion($mcqs[$i], 1, true);
+            $this->createQuestion($essays[$i], 2, true);
         }
     }
 
@@ -75,7 +75,7 @@ class QuestionSeeder extends Seeder
         $studentAnswer = null;
 
         if ($isAnswered) {
-            if ($type === 'multiple_choice') {
+            if ($type == 1) { // 1 = multiple_choice
                 $isCorrect = rand(1, 100) <= 50; // 50% benar
                 if ($isCorrect) {
                     $studentAnswer = $data['ans'];
@@ -84,7 +84,7 @@ class QuestionSeeder extends Seeder
                     $studentAnswer = $wrongOptions[array_rand($wrongOptions)];
                 }
             } else {
-                // Untuk Essay, kita variasikan jawaban menjadi 3 kategori:
+                // Untuk Essay (2), kita variasikan jawaban menjadi 3 kategori:
                 // 0 = Sangat Benar, 1 = Setengah Benar, 2 = Sangat Salah
                 $answerQuality = rand(0, 2);
                 
@@ -113,7 +113,7 @@ class QuestionSeeder extends Seeder
         Question::create([
             'type' => $type,
             'question' => $data['q'],
-            'options' => $type === 'multiple_choice' ? $data['options'] : null,
+            'options' => $type == 1 ? $data['options'] : null, // 1 = multiple_choice
             'correct_answer' => $data['ans'],
             'student_answer' => $studentAnswer,
             'is_answered' => $isAnswered,

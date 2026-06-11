@@ -19,6 +19,7 @@ return new class extends Migration
             $table->float('score')->nullable();
             $table->text('ai_response')->nullable();
             $table->string('status')->default('pending');
+            $table->integer('processing_time')->nullable()->comment('Processing time in seconds');
             $table->timestamps();
         });
     }

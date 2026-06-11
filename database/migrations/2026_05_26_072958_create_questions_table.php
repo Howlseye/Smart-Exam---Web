@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('questions', function (Blueprint $table) {
             $table->id();
-            $table->enum('type', ['multiple_choice', 'essay']);
+            $table->tinyInteger('type')->comment('1: multiple_choice, 2: essay');
             $table->text('question');
             $table->json('options')->nullable();
             $table->text('correct_answer')->nullable();

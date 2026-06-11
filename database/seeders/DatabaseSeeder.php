@@ -22,6 +22,6 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        \App\Models\AIQueue::factory(50)->create();
+        $this->call(QuestionSeeder::class);
     }
 }

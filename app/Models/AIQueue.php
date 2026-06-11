@@ -11,4 +11,9 @@ class AIQueue extends Model
     use HasFactory;
 
     protected $guarded = [];
+
+    public function logs()
+    {
+        return $this->hasMany(AIQueueLog::class, 'queue_id');
+    }
 }
