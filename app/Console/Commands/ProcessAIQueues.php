@@ -9,6 +9,8 @@ use App\Models\AIQueue;
 use App\Models\AIQueueLog;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Exception;
 
 #[Signature('ai:process-queues')]
 #[Description('Process pending AI Queues and grade answers via Groq AI')]
@@ -17,9 +19,9 @@ class ProcessAIQueues extends Command
     public function handle()
     {
         // Tandai bahwa proses sedang berjalan
-        \Illuminate\Support\Facades\Cache::put('ai_processing', true, now()->addHours(1));
+        Cache::put('ai_processing', true, now()->addHours(1));
         // Hapus flag stop jika sebelumnya ada
-        \Illuminate\Support\Facades\Cache::forget('ai_processing_stop');
+        Cache::forget('ai_processing_stop');
 
         // $apiKey = config('services.gemini.api_key');
         $apiKey = config('services.groq.api_key');
@@ -28,9 +30,9 @@ class ProcessAIQueues extends Command
 
         while ($queue = AIQueue::where('status', 'pending')->first()) {
             // Cek apakah ada instruksi penghentian dari user
-            if (\Illuminate\Support\Facades\Cache::get('ai_processing_stop')) {
+            if (Cache::get('ai_processing_stop')) {
                 $this->info("Menerima sinyal stop dari user. Menghentikan proses...");
-                \Illuminate\Support\Facades\Cache::forget('ai_processing_stop');
+                Cache::forget('ai_processing_stop');
                 break;
             }
 
@@ -102,9 +104,9 @@ class ProcessAIQueues extends Command
                     $queue->update(['status' => 'completed']);
                     $this->info("Queue ID: {$queue->id} completed with score: {$score} in {$processingTime}s");
                 } else {
-                    throw new \Exception("API Error: " . $response->body());
+                    throw new Exception("API Error: " . $response->body());
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $endTime = microtime(true);
                 $processingTime = round($endTime - $startTime);
 
@@ -141,6 +143,6 @@ class ProcessAIQueues extends Command
         $this->info("Finished processing queues.");
 
         // Hapus flag karena proses sudah selesai
-        \Illuminate\Support\Facades\Cache::forget('ai_processing');
+        Cache::forget('ai_processing');
     }
 }

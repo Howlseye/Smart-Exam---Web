@@ -6,20 +6,15 @@ use App\Models\Question;
 
 class QuestionService
 {
-    /**
-     * Get all unanswered questions.
-     */
+    // Ambil semua soal yang belum dijawab.
     public function getUnansweredQuestions()
     {
-        // Ambil data soal yang belum dijawab.
         return Question::select('id', 'type', 'question', 'options')
             ->where('is_answered', false)
             ->get();
     }
 
-    /**
-     * Submit student answers.
-     */
+    // Simpan jawaban siswa yang baru.
     public function submitStudentAnswers(array $answers): int
     {
         $updatedCount = 0;
@@ -27,7 +22,7 @@ class QuestionService
         foreach ($answers as $answerData) {
             $question = Question::find($answerData['id']);
             
-            // Cek dan simpan jika belum dijawab.
+            // Simpan jika soal belum dijawab.
             if ($question && !$question->is_answered) {
                 $question->update([
                     'student_answer' => $answerData['answer'],

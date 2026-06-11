@@ -16,9 +16,9 @@ class QuestionController extends Controller
         $this->questionService = $questionService;
     }
 
+    // Ambil daftar soal yang belum dijawab.
     public function index()
     {
-        // Ambil data melalui layanan.
         $questions = $this->questionService->getUnansweredQuestions();
 
         return response()->json([
@@ -28,9 +28,9 @@ class QuestionController extends Controller
         ]);
     }
 
+    // Simpan jawaban siswa yang dikirimkan.
     public function submitAnswers(Request $request)
     {
-        // Validasi input jawaban.
         $validator = Validator::make($request->all(), [
             'answers' => 'required|array|max:50',
             'answers.*.id' => 'required|exists:questions,id',
@@ -40,18 +40,17 @@ class QuestionController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Format pengiriman salah atau terdapat ID soal yang tidak valid.'
+                'message' => 'Format pengiriman salah atau ID tidak valid.'
             ], 400);
         }
 
         $answers = $validator->validated()['answers'];
         
-        // Simpan jawaban melalui layanan.
         $updatedCount = $this->questionService->submitStudentAnswers($answers);
 
         return response()->json([
             'success' => true,
-            'message' => "Berhasil menyimpan jawaban untuk {$updatedCount} soal dan menambahkannya ke antrean AI."
+            'message' => "Berhasil menyimpan {$updatedCount} jawaban dan antrean."
         ]);
     }
 }
