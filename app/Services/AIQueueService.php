@@ -136,6 +136,7 @@ class AIQueueService
     public function processQueue(int $id): array
     {
         $queue = AIQueue::find($id);
+        $correctAnswer = Question::where('question', $queue->question)->value('correct_answer');
         
         // Cek validitas antrean.
         if (!$queue || $queue->status !== 'processing') {
@@ -147,6 +148,7 @@ class AIQueueService
         // Buat prompt permintaan.
         $prompt = "Tolong berikan nilai untuk jawaban esai berikut.\n\n" .
                   "Pertanyaan: {$queue->question}\n\n" .
+                  "Referensi Jawaban Benar: {$correctAnswer}\n\n" .
                   "Jawaban: {$queue->answer}\n\n" .
                   "Berikan respons dalam format JSON dengan struktur: {\"score\": [angka 0-100], \"confidence\": \"[rendah/sedang/tinggi]\"}. Jangan tambahkan teks lain selain JSON.";
 
