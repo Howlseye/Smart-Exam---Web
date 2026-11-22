@@ -27,6 +27,10 @@ if [ "$1" = "php-fpm" ]; then
     php artisan storage:link --quiet || true
     php artisan optimize:clear || true
     php artisan migrate --force || true
+
+    # Auto-seed questions if empty
+    php -r "require 'vendor/autoload.php'; \$app = require_once 'bootstrap/app.php'; \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class); \$kernel->bootstrap(); if (\App\Models\Question::count() === 0) { exit(1); } else { exit(0); }" 2>/dev/null || php artisan db:seed --force || true
+
     echo "[SmartExam] Setup completed!"
 fi
 
@@ -35,4 +39,3 @@ chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache 2>/dev/null
 chmod -R 775 /var/www/storage /var/www/bootstrap/cache 2>/dev/null || true
 
 exec "$@"
-
