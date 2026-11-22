@@ -44,10 +44,52 @@ class AIQueueService
         ];
     }
 
+    // Ambil ringkasan statistik antrean
+    public function getQueueStats(): array
+    {
+        $total = AIQueue::count();
+        $pending = AIQueue::where('status', 'pending')->count();
+        $processing = AIQueue::where('status', 'processing')->count();
+        $completed = AIQueue::where('status', 'completed')->count();
+        $failed = AIQueue::where('status', 'failed')->count();
+
+        $avgScore = AIQueueLog::where('status', 'completed')->whereNotNull('score')->avg('score');
+        $avgProcessingTime = AIQueueLog::where('status', 'completed')->whereNotNull('processing_time')->avg('processing_time');
+
+        $unsyncedCount = Question::where('type', 2)
+            ->whereNotNull('student_answer')
+            ->where('student_answer', '!=', '')
+            ->whereNotIn('question', AIQueue::pluck('question'))
+            ->count();
+
+        return [
+            'total' => $total,
+            'pending' => $pending,
+            'processing' => $processing,
+            'completed' => $completed,
+            'failed' => $failed,
+            'avg_score' => $avgScore !== null ? round($avgScore, 1) : null,
+            'avg_time' => $avgProcessingTime !== null ? round($avgProcessingTime, 1) : null,
+            'unsynced_count' => $unsyncedCount,
+        ];
+    }
+
     // Reset antrean untuk proses ulang.
     public function retryQueue(AIQueue $queue): void
     {
         $queue->update(['status' => 'pending']);
+    }
+
+    // Reset semua antrean berstatus failed untuk diproses ulang.
+    public function retryAllFailed(): int
+    {
+        return AIQueue::where('status', 'failed')->update(['status' => 'pending']);
+    }
+
+    // Reset kumpulan antrean berdasarkan ID untuk diproses ulang.
+    public function retryBulk(array $ids): int
+    {
+        return AIQueue::whereIn('id', $ids)->update(['status' => 'pending']);
     }
 
     // Mulai proses AI.
@@ -144,6 +186,7 @@ class AIQueueService
         }
 
         $apiKey = config('services.groq.api_key');
+        $model = config('services.groq.model', 'openai/gpt-oss-120b');
         
         // Buat prompt permintaan.
         $prompt = "Tolong berikan nilai untuk jawaban esai berikut.\n\n" .
@@ -161,7 +204,7 @@ class AIQueueService
                     'Content-Type' => 'application/json',
                 ])
                 ->post('https://api.groq.com/openai/v1/chat/completions', [
-                    'model' => 'llama-3.3-70b-versatile',
+                    'model' => $model,
                     'messages' => [
                         ['role' => 'user', 'content' => $prompt]
                     ],

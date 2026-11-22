@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+npm-debug.log
+.env.backup
+.phpunit.cache
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+docker/mysql/data
+tests
+

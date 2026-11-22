@@ -25,6 +25,7 @@ class ProcessAIQueues extends Command
 
         // $apiKey = config('services.gemini.api_key');
         $apiKey = config('services.groq.api_key');
+        $model = config('services.groq.model', 'openai/gpt-oss-120b');
         $pendingCount = AIQueue::where('status', 'pending')->count();
         $this->info("Found {$pendingCount} pending queues.");
 
@@ -66,7 +67,7 @@ class ProcessAIQueues extends Command
                         'Content-Type' => 'application/json',
                     ])
                     ->post("https://api.groq.com/openai/v1/chat/completions", [
-                        'model' => 'llama-3.3-70b-versatile',
+                        'model' => $model,
                         'messages' => [
                             ['role' => 'user', 'content' => $prompt]
                         ],
